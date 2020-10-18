@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <math.h>
+
 #include <SDL2/SDL.h>
 
 #define SCREEN_WIDTH 640
@@ -84,36 +86,67 @@ void rasterise_triangle(screenpos v0, screenpos v1, screenpos v2, int r, int g, 
 
 // ----------------------------------------------------------------------------
 
+typedef struct {
+	float x, y;
+} vec2f;
+
+vec2f add2f(vec2f a, vec2f b) {
+	return (vec2f){a.x + b.x, a.y + b.y};
+}
+
+vec2f rotate2f(vec2f a, float theta) {
+	return (vec2f){
+		 a.x * cosf(theta) + a.y * sinf(theta),
+		-a.x * sinf(theta) + a.y * cosf(theta)
+	};
+}
+
+screenpos screenpos_from_vec2f(vec2f a) {
+	return (screenpos){a.x * (1 << SCREEN_FRAC_BITS), a.y * (1 << SCREEN_FRAC_BITS)};
+}
+
+// ----------------------------------------------------------------------------
+
 int main(void) {
 	SDL_Window *window;
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
 	SDL_SetWindowTitle(window, "Triangle");
 
-	clearscreen();
 
-
-	rasterise_triangle(
-		(screenpos){100 << SCREEN_FRAC_BITS, 100 << SCREEN_FRAC_BITS},
-		(screenpos){80  << SCREEN_FRAC_BITS, 200 << SCREEN_FRAC_BITS},
-		(screenpos){220 << SCREEN_FRAC_BITS, 110 << SCREEN_FRAC_BITS},
-		255, 0, 0
-	);
-
-	rasterise_triangle(
-		(screenpos){80  << SCREEN_FRAC_BITS, 200 << SCREEN_FRAC_BITS},
-		(screenpos){400 << SCREEN_FRAC_BITS, 300 << SCREEN_FRAC_BITS},
-		(screenpos){220 << SCREEN_FRAC_BITS, 110 << SCREEN_FRAC_BITS},
-		0, 255, 0
-	);
-
-
-	vsync();
-
-	while (1) {
+	bool quit = false;
+	while (!quit) {
 		SDL_Event event;
-		if (SDL_PollEvent(&event) && event.type == SDL_QUIT)
-			break;
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT)
+				quit = true;
+		}
+
+		clearscreen();
+
+		float theta = SDL_GetTicks() * 0.002f;
+		vec2f centre = (vec2f){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+		vec2f v[4];
+		v[0] = add2f(centre, rotate2f((vec2f){150, 0}, 0 * M_PI / 2 + theta));
+		v[1] = add2f(centre, rotate2f((vec2f){120, 0}, 1 * M_PI / 2 + theta));
+		v[2] = add2f(centre, rotate2f((vec2f){130, 0}, 2 * M_PI / 2 + theta));
+		v[3] = add2f(centre, rotate2f((vec2f){170, 0}, 3 * M_PI / 2 + theta));
+
+		rasterise_triangle(
+			screenpos_from_vec2f(v[0]),
+			screenpos_from_vec2f(v[1]),
+			screenpos_from_vec2f(v[2]),
+			255, 0, 0
+		);
+
+		rasterise_triangle(
+			screenpos_from_vec2f(v[2]),
+			screenpos_from_vec2f(v[3]),
+			screenpos_from_vec2f(v[0]),
+			0, 255, 0
+		);
+
+		vsync();
 	}
 
 	SDL_DestroyRenderer(renderer);

@@ -1,5 +1,5 @@
 SRCDIR=../src
-LIBS=SDL2
+LIBS=SDL2 m
 APPNAME=triangle
 
 CC=gcc
