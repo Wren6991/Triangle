@@ -4,7 +4,7 @@ APPNAME=triangle
 
 CC=gcc
 LD=gcc
-CCFLAGS=-Og -Wall -Wextra
+CCFLAGS=-O2 -Wall -Wextra
 LDFLAGS=
 
 ###
@@ -18,10 +18,11 @@ OBJS=$(addsuffix .o,$(notdir $(SRCS)))
 all: $(APPNAME)
 
 clean:
-	rm -f $(OBJS) $(APPNAME)
+	rm -f $(OBJS) $(APPNAME) teapot.tri
 
 run: all
-	./$(APPNAME)
+	../scripts/obj2tri ../assets/teapot.obj teapot.tri
+	./$(APPNAME) teapot.tri
 
 %.c.o: $(SRCDIR)/%.c
 	$(CC) $(CCFLAGS) -c $(<) -o $(@)

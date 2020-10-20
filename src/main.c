@@ -1,5 +1,6 @@
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <SDL2/SDL.h>
@@ -91,12 +92,66 @@ screenpos screenpos_from_vec2f(vec2f a) {
 
 // ----------------------------------------------------------------------------
 
-int main(void) {
+vec2f screen_project(vec4f a) {
+	return (vec2f){
+		a.x / a.w * (SCREEN_WIDTH / 2.f) + SCREEN_WIDTH / 2.f,
+		a.y / a.w * (SCREEN_HEIGHT / 2.f) + SCREEN_HEIGHT / 2.f
+	};
+}
+
+void load_tri(const char *fname, float **buf, int *n_tri) {
+	FILE *f = fopen(fname, "rb");
+	fseek(f, 0, SEEK_END);
+	unsigned long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	*buf = malloc(fsize);
+	if (*buf == NULL) {
+		*n_tri = 0;
+		fclose(f);
+		return;
+	}
+	*n_tri = fsize / (9 * sizeof(float));
+
+	if (fread(*buf, 1, fsize, f) < fsize)
+		*n_tri = 0;
+	fclose(f);
+}
+
+int main(int argc, const char **argv) {
 	SDL_Window *window;
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
 	SDL_SetWindowTitle(window, "Triangle");
 
+	float *mesh;
+	int n_tri;
+	if (argc > 1) {
+		load_tri(argv[1], &mesh, &n_tri);
+		if (n_tri == 0) {
+			printf("Empty mesh!\n");
+			return -1;
+		}
+	}
+	else {
+		printf("Usage: triangle <mesh.tri>\n");
+		return -1;
+	}
+
+	printf("Loaded %d triangles\n", n_tri);
+
+	// OpenGL-style coordinate system:
+	float n = 0.1f;
+	float f = 1000.f;
+	mat4f proj_matrix = {{
+		n,    0.f,  0.f,  0.f,
+		0.f,  n,    0.f,  0.f,
+		0.f,  0.f, -(f + n) / (f - n), -(2.f * n * f) / (f - n),
+		0.f,  0.f, -1.f,  0.f
+	}};
+
+	mat4f view_matrix;
+	translatem4f(&view_matrix, (vec3f){0.f, 0.f, -3.f});
 
 	bool quit = false;
 	while (!quit) {
@@ -108,27 +163,36 @@ int main(void) {
 
 		clearscreen();
 
-		float theta = SDL_GetTicks() * 0.002f;
-		vec2f centre = (vec2f){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
-		vec2f v[4];
-		v[0] = add2f(centre, rotate2f((vec2f){150, 0}, 0 * M_PI / 2 + theta));
-		v[1] = add2f(centre, rotate2f((vec2f){120, 0}, 1 * M_PI / 2 + theta));
-		v[2] = add2f(centre, rotate2f((vec2f){130, 0}, 2 * M_PI / 2 + theta));
-		v[3] = add2f(centre, rotate2f((vec2f){170, 0}, 3 * M_PI / 2 + theta));
-
-		rasterise_triangle(
-			screenpos_from_vec2f(v[0]),
-			screenpos_from_vec2f(v[1]),
-			screenpos_from_vec2f(v[2]),
-			255, 0, 0
-		);
-
-		rasterise_triangle(
-			screenpos_from_vec2f(v[2]),
-			screenpos_from_vec2f(v[3]),
-			screenpos_from_vec2f(v[0]),
-			0, 255, 0
-		);
+		for (int t = 0; t < n_tri; ++t) {
+			// Transform vertices to view space, then transform to clip space, then
+			// project to screen space
+			vec2f proj_verts[3];
+			for (int i = 0; i < 3; ++i) {
+				vec4f v = (vec4f){
+					mesh[0 + 3 * (i + 3 * t)],
+					mesh[1 + 3 * (i + 3 * t)],
+					mesh[2 + 3 * (i + 3 * t)],
+					1.f
+				};
+				v = mulmv4f(&view_matrix, v);
+				v = mulmv4f(&proj_matrix, v);
+				proj_verts[i] = screen_project(v);
+			}
+			// Cull backward-facing triangles
+			float wind = cross2f(
+				sub2f(proj_verts[1], proj_verts[0]),
+				sub2f(proj_verts[2], proj_verts[0])
+			);
+			if (wind >= 0)
+				continue;
+			// Rasterise remaining screen-space triangles
+			rasterise_triangle(
+				screenpos_from_vec2f(proj_verts[0]),
+				screenpos_from_vec2f(proj_verts[1]),
+				screenpos_from_vec2f(proj_verts[2]),
+				255, 0, 0
+			);
+		}
 
 		vsync();
 	}

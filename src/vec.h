@@ -99,6 +99,10 @@ static inline float dot4f(vec4f a, vec4f b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
+static inline vec3f proj4f(vec4f a) {
+	return (vec3f){a.x / a.w, a.y / a.w, a.z / a.w};
+}
+
 // ----------------------------------------------------------------------------
 // mat4f
 
@@ -115,6 +119,30 @@ static inline void identitym4f(mat4f *Result) {
 	}
 }
 
+static inline void translatem4f(mat4f *Result, vec3f t) {
+	identitym4f(Result);
+	Result->a[ 3] = t.x;
+	Result->a[ 7] = t.y;
+	Result->a[11] = t.z;
+}
+
+static inline void rotatem4f(mat4f *Result, vec3f a, float theta) {
+	float c = cosf(theta);
+	float s = sinf(theta);
+	identitym4f(Result);
+	Result->a[0] = c + (1 - c) * a.x * a.x;
+	Result->a[1] = (1 - c) * a.x * a.y - s * a.z;
+	Result->a[2] = (1 - c) * a.x * a.z + s * a.y;
+
+	Result->a[4] = (1 - c) * a.x * a.y + s * a.z;
+	Result->a[5] = c + (1 - c) * a.y * a.y;
+	Result->a[6] = (1 - c) * a.y * a.z - s * a.x;
+
+	Result->a[8] = (1 - c) * a.x * a.z - s * a.y;
+	Result->a[9] = (1 - c) * a.y * a.z + s * a.x;
+	Result->a[10] = c = (1 - c) * a.z * a.z;
+}
+
 static inline void mulmm4f(mat4f *Result, mat4f *A, mat4f *B) {
 	for (int i = 0; i < 4; ++i) {
 		for (int j = 0; j < 4; ++j) {
@@ -126,6 +154,7 @@ static inline void mulmm4f(mat4f *Result, mat4f *A, mat4f *B) {
 	}
 }
 
+// b is a *column vector*
 static inline vec4f mulmv4f(mat4f *A, vec4f b) {
 	return (vec4f){
 		dot4f(b, *(vec4f*)&A->a[ 0]), // you be UB
