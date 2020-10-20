@@ -1,9 +1,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <math.h>
 
 #include <SDL2/SDL.h>
+
+#include "vec.h"
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
@@ -22,7 +23,7 @@ int clampi(int x, int min, int max) {
 	return x < min ? min : x > max ? max : x;
 }
 
-void putpixel(int x, int y, uint r, uint g, uint b) {
+void putpixel(int x, int y, int r, int g, int b) {
 	SDL_SetRenderDrawColor(
 		renderer,
 		clampi(r, 0, 255),
@@ -82,23 +83,6 @@ void rasterise_triangle(screenpos v0, screenpos v1, screenpos v2, int r, int g, 
 				putpixel(x, y, r, g, b);
 		}
 	}
-}
-
-// ----------------------------------------------------------------------------
-
-typedef struct {
-	float x, y;
-} vec2f;
-
-vec2f add2f(vec2f a, vec2f b) {
-	return (vec2f){a.x + b.x, a.y + b.y};
-}
-
-vec2f rotate2f(vec2f a, float theta) {
-	return (vec2f){
-		 a.x * cosf(theta) + a.y * sinf(theta),
-		-a.x * sinf(theta) + a.y * cosf(theta)
-	};
 }
 
 screenpos screenpos_from_vec2f(vec2f a) {
