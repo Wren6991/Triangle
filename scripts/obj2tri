@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import re
+import struct
+import sys
+
+verts = []
+faces = []
+
+if len(sys.argv) != 3:
+	sys.exit("Usage: obj2tri <in.obj> <out.tri>")
+
+for line in open(sys.argv[1]):
+	line = line.strip().split("#")[0]
+	if len(line) == 0:
+		continue
+	if line.startswith("v"):
+		line = re.split(r"\s+", line)[1:]
+		if len(line) != 3:
+			sys.exit("Vertices must have exactly 3 components")
+		verts.append(tuple(float(x) for x in line))
+	elif line.startswith("f"):
+		line = re.split(r"\s+", line)[1:]
+		if len(line) != 3:
+			sys.exit("Only triangular faces supported")
+		faces.append(tuple(verts[int(x) - 1] for x in line))
+	else:
+		sys.exit("Did not understand line '{}'".format(line))
+
+print("Found {} vertices, {} triangles".format(len(verts), len(faces)))
+
+with open(sys.argv[2], "wb") as ofile:
+	for f in faces:
+		for v in f:
+			ofile.write(struct.pack("<fff", *v))
